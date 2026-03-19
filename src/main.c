@@ -7,7 +7,7 @@
 #include "grid.h"
 
 /* Window and simulation */
-static const int WINDOW_WIDTH = 1800;
+static const int WINDOW_WIDTH = 1600;
 static const int WINDOW_HEIGHT = 900;
 static const float INITIAL_DENSITY = 0.5f;
 static const Uint32 FPS_UPDATE_INTERVAL_MS = 500;
