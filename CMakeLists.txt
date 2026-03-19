@@ -7,7 +7,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 find_package(SDL3 REQUIRED)
 
-add_executable(cgof src/main.c)
+add_executable(cgof src/main.c src/grid.c)
 target_link_libraries(cgof PRIVATE SDL3::SDL3)
 
 target_compile_options(cgof PRIVATE

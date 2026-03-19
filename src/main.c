@@ -1,15 +1,18 @@
-#include <stdbool.h>
-
 #define SDL_MAIN_USE_CALLBACKS 1
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include "grid.h"
+
 static const int WINDOW_WIDTH = 800;
 static const int WINDOW_HEIGHT = 600;
+static const float INITIAL_DENSITY = 0.5f;
 
 typedef struct {
   SDL_Window *window;
   SDL_Renderer *renderer;
+  SDL_Texture *texture;
+  Grid *grid;
 } AppState;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -41,6 +44,29 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_FAILURE;
   }
 
+  state->texture = SDL_CreateTexture(state->renderer, SDL_PIXELFORMAT_RGBA8888,
+                                     SDL_TEXTUREACCESS_STREAMING, WINDOW_WIDTH,
+                                     WINDOW_HEIGHT);
+  if (!state->texture) {
+    SDL_Log("Failed to create texture: %s", SDL_GetError());
+    SDL_DestroyRenderer(state->renderer);
+    SDL_DestroyWindow(state->window);
+    SDL_free(state);
+    return SDL_APP_FAILURE;
+  }
+
+  state->grid = grid_create(WINDOW_WIDTH, WINDOW_HEIGHT);
+  if (!state->grid) {
+    SDL_Log("Failed to create grid");
+    SDL_DestroyTexture(state->texture);
+    SDL_DestroyRenderer(state->renderer);
+    SDL_DestroyWindow(state->window);
+    SDL_free(state);
+    return SDL_APP_FAILURE;
+  }
+
+  grid_randomize(state->grid, INITIAL_DENSITY);
+
   *appstate = state;
   return SDL_APP_CONTINUE;
 }
@@ -58,8 +84,30 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 SDL_AppResult SDL_AppIterate(void *appstate) {
   AppState *state = appstate;
 
-  SDL_SetRenderDrawColor(state->renderer, 0, 0, 0, 255);
-  SDL_RenderClear(state->renderer);
+  grid_step(state->grid);
+
+  uint8_t *pixels;
+  int pitch;
+
+  if (!SDL_LockTexture(state->texture, NULL, (void **)&pixels, &pitch)) {
+    SDL_Log("Failed to lock texture: %s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  static const uint32_t COLOR_ALIVE = 0x00FF00FF; /* RGBA: green */
+  static const uint32_t COLOR_DEAD = 0x000000FF;  /* RGBA: black */
+
+  for (int y = 0; y < state->grid->height; y++) {
+    uint32_t *row = (uint32_t *)(pixels + y * pitch);
+
+    for (int x = 0; x < state->grid->width; x++) {
+      uint8_t alive = state->grid->cells[y * state->grid->width + x];
+      row[x] = alive ? COLOR_ALIVE : COLOR_DEAD;
+    }
+  }
+
+  SDL_UnlockTexture(state->texture);
+  SDL_RenderTexture(state->renderer, state->texture, NULL, NULL);
   SDL_RenderPresent(state->renderer);
 
   return SDL_APP_CONTINUE;
@@ -70,6 +118,8 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 
   if (appstate) {
     AppState *state = appstate;
+    grid_destroy(state->grid);
+    SDL_DestroyTexture(state->texture);
     SDL_DestroyRenderer(state->renderer);
     SDL_DestroyWindow(state->window);
     SDL_free(state);
