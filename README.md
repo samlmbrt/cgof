@@ -2,10 +2,6 @@
 
 Conway's Game of Life in C23 with SDL3.
 
-## Demo
-
-<!-- Add demo video here -->
-
 ## How It Works
 
 Each cell is packed as a single bit in a `uint64_t` word, so 64 cells are processed per operation. The grid is allocated with a 1-cell dead border (one extra row above/below), eliminating bounds checks in the inner loop.
