@@ -4,8 +4,8 @@
 
 #include "grid.h"
 
-static const int WINDOW_WIDTH = 800;
-static const int WINDOW_HEIGHT = 600;
+static const int WINDOW_WIDTH = 1800;
+static const int WINDOW_HEIGHT = 900;
 static const float INITIAL_DENSITY = 0.5f;
 
 static const Uint32 FPS_UPDATE_INTERVAL_MS = 500;
@@ -117,11 +117,22 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   static const uint32_t COLOR_DEAD = 0x000000FF;  /* RGBA: black */
 
   for (int y = 0; y < state->grid->height; y++) {
-    uint32_t *row = (uint32_t *)(pixels + y * pitch);
+    uint64_t *grid_row = state->grid->cells + y * state->grid->words_per_row;
+    uint32_t *pixel_row = (uint32_t *)(pixels + y * pitch);
 
-    for (int x = 0; x < state->grid->width; x++) {
-      uint8_t alive = state->grid->cells[y * state->grid->stride + x];
-      row[x] = alive ? COLOR_ALIVE : COLOR_DEAD;
+    for (int w = 0; w < state->grid->words_per_row; w++) {
+      uint64_t word = grid_row[w];
+      int base_x = w * 64;
+      int count = 64;
+
+      if (base_x + 64 > state->grid->width) {
+        count = state->grid->width - base_x;
+      }
+
+      for (int b = 0; b < count; b++) {
+        pixel_row[base_x + b] = (word & 1) ? COLOR_ALIVE : COLOR_DEAD;
+        word >>= 1;
+      }
     }
   }
 

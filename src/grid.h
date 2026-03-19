@@ -6,11 +6,12 @@
 typedef struct {
   int width;
   int height;
-  int stride;
-  uint8_t *cells;
-  uint8_t *next;
-  uint8_t *buffer_a;
-  uint8_t *buffer_b;
+  int words_per_row;
+  uint64_t last_word_mask;
+  uint64_t *cells;
+  uint64_t *next;
+  uint64_t *buffer_a;
+  uint64_t *buffer_b;
 } Grid;
 
 Grid *grid_create(int width, int height);
