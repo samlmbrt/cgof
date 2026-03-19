@@ -132,10 +132,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   }
 
   int width = state->grid->width;
+  int height = state->grid->height;
   int wpr = state->grid->words_per_row;
   int full_words = width / 64;
+  int tail_bits = width % 64;
 
-  for (int y = 0; y < state->grid->height; y++) {
+  for (int y = 0; y < height; y++) {
     uint64_t *grid_row = state->grid->cells + y * wpr;
     uint32_t *pixel_row = (uint32_t *)(pixels + y * pitch);
 
@@ -150,7 +152,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
       }
     }
 
-    if (width % 64 != 0) {
+    if (tail_bits) {
       uint64_t word = grid_row[full_words];
       uint32_t *dst = pixel_row + full_words * 64;
       int remaining = width - full_words * 64;
