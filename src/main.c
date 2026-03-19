@@ -2,7 +2,23 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <string.h>
+
 #include "grid.h"
+
+static const uint32_t COLOR_ALIVE = 0x00FF00FF; /* RGBA: green */
+static const uint32_t COLOR_DEAD = 0x000000FF;  /* RGBA: black */
+
+/* pixel_lut[byte] = 8 pre-computed pixels for each possible 8-bit pattern */
+static uint32_t pixel_lut[256][8];
+
+static void init_pixel_lut(void) {
+  for (int i = 0; i < 256; i++) {
+    for (int b = 0; b < 8; b++) {
+      pixel_lut[i][b] = (i & (1 << b)) ? COLOR_ALIVE : COLOR_DEAD;
+    }
+  }
+}
 
 static const int WINDOW_WIDTH = 1800;
 static const int WINDOW_HEIGHT = 900;
@@ -22,6 +38,8 @@ typedef struct {
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   (void)argc;
   (void)argv;
+
+  init_pixel_lut();
 
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
@@ -113,25 +131,37 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     return SDL_APP_FAILURE;
   }
 
-  static const uint32_t COLOR_ALIVE = 0x00FF00FF; /* RGBA: green */
-  static const uint32_t COLOR_DEAD = 0x000000FF;  /* RGBA: black */
+  int width = state->grid->width;
+  int wpr = state->grid->words_per_row;
+  int full_words = width / 64;
 
   for (int y = 0; y < state->grid->height; y++) {
-    uint64_t *grid_row = state->grid->cells + y * state->grid->words_per_row;
+    uint64_t *grid_row = state->grid->cells + y * wpr;
     uint32_t *pixel_row = (uint32_t *)(pixels + y * pitch);
 
-    for (int w = 0; w < state->grid->words_per_row; w++) {
+    for (int w = 0; w < full_words; w++) {
       uint64_t word = grid_row[w];
-      int base_x = w * 64;
-      int count = 64;
+      uint32_t *dst = pixel_row + w * 64;
 
-      if (base_x + 64 > state->grid->width) {
-        count = state->grid->width - base_x;
+      for (int i = 0; i < 8; i++) {
+        memcpy(dst + i * 8, pixel_lut[(uint8_t)(word & 0xFF)],
+               8 * sizeof(uint32_t));
+        word >>= 8;
       }
+    }
 
-      for (int b = 0; b < count; b++) {
-        pixel_row[base_x + b] = (word & 1) ? COLOR_ALIVE : COLOR_DEAD;
-        word >>= 1;
+    if (width % 64 != 0) {
+      uint64_t word = grid_row[full_words];
+      uint32_t *dst = pixel_row + full_words * 64;
+      int remaining = width - full_words * 64;
+
+      while (remaining > 0) {
+        int n = remaining < 8 ? remaining : 8;
+        memcpy(dst, pixel_lut[(uint8_t)(word & 0xFF)],
+               (size_t)n * sizeof(uint32_t));
+        dst += n;
+        remaining -= n;
+        word >>= 8;
       }
     }
   }
