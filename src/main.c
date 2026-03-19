@@ -8,11 +8,15 @@ static const int WINDOW_WIDTH = 800;
 static const int WINDOW_HEIGHT = 600;
 static const float INITIAL_DENSITY = 0.5f;
 
+static const Uint32 FPS_UPDATE_INTERVAL_MS = 500;
+
 typedef struct {
   SDL_Window *window;
   SDL_Renderer *renderer;
   SDL_Texture *texture;
   Grid *grid;
+  Uint64 last_fps_time;
+  int frame_count;
 } AppState;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -83,6 +87,21 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
   AppState *state = appstate;
+
+  state->frame_count++;
+  Uint64 now = SDL_GetTicks();
+  Uint64 elapsed = now - state->last_fps_time;
+
+  if (elapsed >= FPS_UPDATE_INTERVAL_MS) {
+    double fps = (double)state->frame_count / ((double)elapsed / 1000.0);
+    char title[64];
+
+    SDL_snprintf(title, sizeof(title), "cgof - %.0f FPS", fps);
+    SDL_SetWindowTitle(state->window, title);
+
+    state->frame_count = 0;
+    state->last_fps_time = now;
+  }
 
   grid_step(state->grid);
 
