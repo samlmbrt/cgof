@@ -13,15 +13,21 @@ Grid *grid_create(int width, int height) {
 
   grid->width = width;
   grid->height = height;
-  grid->cells = calloc((size_t)width * (size_t)height, sizeof(uint8_t));
-  grid->next = calloc((size_t)width * (size_t)height, sizeof(uint8_t));
+  grid->stride = width + 2;
 
-  if (!grid->cells || !grid->next) {
-    free(grid->next);
-    free(grid->cells);
+  size_t padded_size = (size_t)grid->stride * (size_t)(height + 2);
+  grid->buffer_a = calloc(padded_size, sizeof(uint8_t));
+  grid->buffer_b = calloc(padded_size, sizeof(uint8_t));
+
+  if (!grid->buffer_a || !grid->buffer_b) {
+    free(grid->buffer_b);
+    free(grid->buffer_a);
     free(grid);
     return NULL;
   }
+
+  grid->cells = grid->buffer_a + grid->stride + 1;
+  grid->next = grid->buffer_b + grid->stride + 1;
 
   return grid;
 }
@@ -31,46 +37,32 @@ void grid_destroy(Grid *grid) {
     return;
   }
 
-  free(grid->next);
-  free(grid->cells);
+  free(grid->buffer_b);
+  free(grid->buffer_a);
   free(grid);
 }
 
 void grid_randomize(Grid *grid, float density) {
   for (int y = 0; y < grid->height; y++) {
     for (int x = 0; x < grid->width; x++) {
-      grid->cells[y * grid->width + x] = SDL_randf() < density ? 1 : 0;
+      grid->cells[y * grid->stride + x] = SDL_randf() < density ? 1 : 0;
     }
   }
-}
-
-static int count_neighbors(const Grid *grid, int x, int y) {
-  int count = 0;
-
-  for (int dy = -1; dy <= 1; dy++) {
-    for (int dx = -1; dx <= 1; dx++) {
-      if (dx == 0 && dy == 0) {
-        continue;
-      }
-      int nx = x + dx;
-      int ny = y + dy;
-      if (nx >= 0 && nx < grid->width && ny >= 0 && ny < grid->height) {
-        count += grid->cells[ny * grid->width + nx];
-      }
-    }
-  }
-
-  return count;
 }
 
 void grid_step(Grid *grid) {
+  int stride = grid->stride;
+
   for (int y = 0; y < grid->height; y++) {
     for (int x = 0; x < grid->width; x++) {
-      int neighbors = count_neighbors(grid, x, y);
-      int idx = y * grid->width + x;
-      uint8_t alive = grid->cells[idx];
+      int idx = y * stride + x;
+      int neighbors = grid->cells[idx - stride - 1] +
+                      grid->cells[idx - stride] +
+                      grid->cells[idx - stride + 1] + grid->cells[idx - 1] +
+                      grid->cells[idx + 1] + grid->cells[idx + stride - 1] +
+                      grid->cells[idx + stride] + grid->cells[idx + stride + 1];
 
-      if (alive) {
+      if (grid->cells[idx]) {
         grid->next[idx] = (neighbors == 2 || neighbors == 3) ? 1 : 0;
       } else {
         grid->next[idx] = (neighbors == 3) ? 1 : 0;

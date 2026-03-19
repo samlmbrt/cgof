@@ -120,7 +120,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     uint32_t *row = (uint32_t *)(pixels + y * pitch);
 
     for (int x = 0; x < state->grid->width; x++) {
-      uint8_t alive = state->grid->cells[y * state->grid->width + x];
+      uint8_t alive = state->grid->cells[y * state->grid->stride + x];
       row[x] = alive ? COLOR_ALIVE : COLOR_DEAD;
     }
   }
