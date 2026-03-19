@@ -6,10 +6,17 @@
 
 #include "grid.h"
 
+/* Window and simulation */
+static const int WINDOW_WIDTH = 1800;
+static const int WINDOW_HEIGHT = 900;
+static const float INITIAL_DENSITY = 0.5f;
+static const Uint32 FPS_UPDATE_INTERVAL_MS = 500;
+
+/* Rendering */
 static const uint32_t COLOR_ALIVE = 0x00FF00FF; /* RGBA: green */
 static const uint32_t COLOR_DEAD = 0x000000FF;  /* RGBA: black */
 
-/* pixel_lut[byte] = 8 pre-computed pixels for each possible 8-bit pattern */
+/* Maps each possible 8-bit pattern to 8 pre-computed pixels. */
 static uint32_t pixel_lut[256][8];
 
 static void init_pixel_lut(void) {
@@ -19,12 +26,6 @@ static void init_pixel_lut(void) {
     }
   }
 }
-
-static const int WINDOW_WIDTH = 1800;
-static const int WINDOW_HEIGHT = 900;
-static const float INITIAL_DENSITY = 0.5f;
-
-static const Uint32 FPS_UPDATE_INTERVAL_MS = 500;
 
 typedef struct {
   SDL_Window *window;
@@ -106,6 +107,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 SDL_AppResult SDL_AppIterate(void *appstate) {
   AppState *state = appstate;
 
+  /* FPS counter */
   state->frame_count++;
   Uint64 now = SDL_GetTicks();
   Uint64 elapsed = now - state->last_fps_time;
@@ -113,16 +115,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   if (elapsed >= FPS_UPDATE_INTERVAL_MS) {
     double fps = (double)state->frame_count / ((double)elapsed / 1000.0);
     char title[64];
-
     SDL_snprintf(title, sizeof(title), "cgof - %.0f FPS", fps);
     SDL_SetWindowTitle(state->window, title);
-
     state->frame_count = 0;
     state->last_fps_time = now;
   }
 
+  /* Simulation */
   grid_step(state->grid);
 
+  /* Rendering */
   uint8_t *pixels;
   int pitch;
 
@@ -155,7 +157,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     if (tail_bits) {
       uint64_t word = grid_row[full_words];
       uint32_t *dst = pixel_row + full_words * 64;
-      int remaining = width - full_words * 64;
+      int remaining = tail_bits;
 
       while (remaining > 0) {
         int n = remaining < 8 ? remaining : 8;
